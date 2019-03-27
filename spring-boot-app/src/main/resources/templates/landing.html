@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="fragments/head :: head"></head>
+
+<body>
+
+<div class="container">
+    <div class="row">
+        <div class="col">
+            <div class="jumbotron">
+                <h1 class="display-4">Play Kalah Online!</h1>
+                <p class="lead">Watch a game, join a game or start a new game.</p>
+                <a class="btn btn-primary btn-lg" href="#" role="button" onclick="createGame()">Start New Game</a>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-xs-12 col-sm-12 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Join A Game</h5>
+                </div>
+                <div class="card-body" th:if="${#lists.isEmpty(pendingGames)}">
+                    <p class="card-text">No pending games found</p>
+                </div>
+                <ul class="list-group list-group-flush" th:if="${not #lists.isEmpty(pendingGames)}">
+                    <li th:each="pendingGame : ${pendingGames}"
+                        th:pendingGameId="${pendingGame.id}"
+                        onclick="joinGame(this.getAttribute('pendingGameId'));"
+                        class="list-group-item"
+                        th:text="${pendingGame.name}">GAME NAME
+                    </li>
+
+                </ul>
+            </div>
+        </div>
+        <div class="col-xs-12 col-sm-12 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Watch A Game</h5>
+                </div>
+                <div class="card-body" th:if="${#lists.isEmpty(activeGames)}">
+                    <p class="card-text">No active games found</p>
+                </div>
+                <ul class="list-group list-group-flush" th:if="${not #lists.isEmpty(activeGames)}">
+                    <li th:each="activeGame : ${activeGames}"
+                        th:activeGameId="${activeGame.id}"
+                        onclick="joinGame(this.getAttribute('activeGameId'));"
+                        class="list-group-item"
+                        th:text="${activeGame.name}">GAME NAME
+                    </li>
+
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="fragments/js-scripts :: js-scripts"></div>
+<script>
+    $(document).ready(function () {
+
+        // DO STUFF
+
+    });
+
+    function joinGame(gameId) {
+        alert("TODO - IMPLEMENT JOIN GAME");
+    }
+
+    function viewGame(gameId) {
+        alert("TODO - IMPLEMENT VIEW GAME");
+    }
+
+    function createGame() {
+        location.href = "/create";
+    }
+
+</script>
+</body>
+
+</html>

@@ -11,6 +11,7 @@ import com.javafreelancedeveloper.kalah.repository.GameRepository;
 import com.javafreelancedeveloper.kalah.service.GameService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -56,6 +57,17 @@ public class GameServiceImpl implements GameService {
 
 
     @Override
+    public GameDTO getGame(GameRequestDTO gameRequest) {
+        Game game = gameRepository.findById(gameRequest.getGameId()).orElseThrow(GameNotFoundException::new);
+        if(gameRequest.getPlayerId().equals(game.getPlayerOneId()) || gameRequest.getPlayerId().equals(game.getPlayerTwoId())) {
+            return convert(game, gameRequest.getPlayerId());
+        } else {
+            return convert(game, null);
+        }
+    }
+
+
+    @Override
     public GameDTO createGame(CreateGameRequestDTO createGameRequest) {
         cleanUpExpiredGames();
         long gameCount = gameRepository.count();
@@ -86,6 +98,10 @@ public class GameServiceImpl implements GameService {
         } else {
             throw new GameNotPendingException();
         }
+    }
+
+    private void thing() {
+
     }
 
 
@@ -192,7 +208,7 @@ public class GameServiceImpl implements GameService {
         if (GameStatus.PLAYER_TWO_TURN.equals(game.getStatus()) && !isPlayerTwo) {
             throw new GameInvalidMoveException(GameInvalidMoveException.MSG_NOT_YOUR_TURN);
         }
-        if (isPlayerOne && (move.getPitNumber() < 1 || move.getPitNumber() > 7)) {
+        if (isPlayerOne && (move.getPitNumber() < 1 || move.getPitNumber() > 6)) {
             throw new GameInvalidMoveException(GameInvalidMoveException.MSG_INVALID_PIT);
         }
         if (isPlayerTwo && (move.getPitNumber() < 8 || move.getPitNumber() > 13)) {
@@ -205,23 +221,23 @@ public class GameServiceImpl implements GameService {
     }
 
 
-    private Map<Integer, Integer> makeGame() {
-        Map<Integer, Integer> playerPits = new LinkedHashMap<>();
-        playerPits.put(1, 4); // player one first pit
-        playerPits.put(2, 4);
-        playerPits.put(3, 4);
-        playerPits.put(4, 4);
-        playerPits.put(5, 4);
-        playerPits.put(6, 4);
-        playerPits.put(7, 0); // player one kalah
-        playerPits.put(8, 4); // player two first pit
-        playerPits.put(9, 4);
-        playerPits.put(10, 4);
-        playerPits.put(11, 4);
-        playerPits.put(12, 4);
-        playerPits.put(13, 4);
-        playerPits.put(14, 0); // player two kalah
-        return playerPits;
+    Map<Integer, Integer> makeGame() {
+        Map<Integer, Integer> gameState = new LinkedHashMap<>();
+        gameState.put(1, 4); // player one first pit
+        gameState.put(2, 4);
+        gameState.put(3, 4);
+        gameState.put(4, 4);
+        gameState.put(5, 4);
+        gameState.put(6, 4);
+        gameState.put(7, 0); // player one kalah
+        gameState.put(8, 4); // player two first pit
+        gameState.put(9, 4);
+        gameState.put(10, 4);
+        gameState.put(11, 4);
+        gameState.put(12, 4);
+        gameState.put(13, 4);
+        gameState.put(14, 0); // player two kalah
+        return gameState;
     }
 
 

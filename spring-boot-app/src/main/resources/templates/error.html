@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="fragments/head :: head"></head>
+
+<body>
+<div class="row">
+    <div class="col-md-6 col-md-offset-3">
+        <h1 th:if="${errorTitle != null}" th:text="${errorTitle}">Error Title</h1>
+        <p th:if="${exception != null}" th:text="${exception.getMessage()}">Error Message</p>
+
+        <h1 th:if="${errorTitle == null}">Unexpected Error</h1>
+        <p th:if="${exception == null}">An unexpected error has occurred. Please contact system administrator.</p>
+    </div>
+</div>
+
+<div th:replace="fragments/js-scripts :: js-scripts"></div>
+<script>
+    $(document).ready(function () {
+
+        // DO STUFF
+
+    });
+</script>
+</body>
+
+</html>

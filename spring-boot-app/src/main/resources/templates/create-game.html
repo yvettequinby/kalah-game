@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="fragments/head :: head"></head>
+
+<body>
+
+<div class="container">
+    <div class="row">
+        <div class="col">
+            <h1>Play Kalah Online</h1>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-xs-12 col-sm-12 col-md-6">
+            <h2>Create A Game</h2>
+
+            <form th:object="${createGameRequest}" th:action="@{/create/}" method="post">
+                <div th:if="${#fields.hasErrors('*')}" class="alert alert-danger">
+                    <p>Please Correct Errors Below</p>
+                </div>
+                <div th:if="${msg != null}" th:text="${msg}" class="alert alert-success fade in">
+                    woo hoo
+                </div>
+
+                <div class="form-group">
+                    <label for="gameName">Game Name</label>
+                    <input type="text"
+                           class="form-control"
+                           th:class="${#fields.hasErrors('name')} ? 'form-control is-invalid' : 'form-control'"
+                           id="gameName"
+                           placeholder="Game Name"
+                           maxlength="25"
+                           th:field="*{name}">
+                    <div class="invalid-feedback" th:each="err : ${#fields.errors('name')}"
+                         th:text="${err}">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    Create
+                </button>
+            </form>
+        </div>
+
+    </div>
+</div>
+
+<div th:replace="fragments/js-scripts :: js-scripts"></div>
+<script>
+    $(document).ready(function () {
+
+        // DO STUFF
+
+    });
+
+
+
+</script>
+</body>
+
+</html>
