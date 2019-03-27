@@ -1,0 +1,36 @@
+.pit {
+    padding: 2rem;
+    border-radius: 50px;
+    margin:10px 0px;
+    text-align: center;
+    font-size: 120%;
+}
+
+.pit.playerOne {
+    border: 2px solid #5e72e4;
+    color: #e14eca;
+}
+.pit.playerTwo {
+    border: 2px solid #8965e0;
+    color: #00f2c3;
+}
+.pit.selectable:hover {
+    color: #fff;
+    border: 2px solid #fff;
+    cursor: pointer;
+}
+.kalah {
+    padding: 2.5rem;
+    border-radius: 25px;
+    margin:10px 0px;
+    text-align: center;
+    font-size: 150%;
+}
+.kalah.playerOne {
+    border: 5px solid #5e72e4;
+    color: #e14eca;
+}
+.kalah.playerTwo {
+    border: 5px solid #8965e0;
+    color: #00f2c3;
+}

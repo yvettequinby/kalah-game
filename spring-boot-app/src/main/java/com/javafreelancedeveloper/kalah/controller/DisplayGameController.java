@@ -1,6 +1,5 @@
 package com.javafreelancedeveloper.kalah.controller;
 
-import com.javafreelancedeveloper.kalah.dto.CreateGameRequestDTO;
 import com.javafreelancedeveloper.kalah.dto.GameDTO;
 import com.javafreelancedeveloper.kalah.dto.GameRequestDTO;
 import com.javafreelancedeveloper.kalah.service.GameService;

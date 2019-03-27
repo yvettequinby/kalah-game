@@ -100,10 +100,6 @@ public class GameServiceImpl implements GameService {
         }
     }
 
-    private void thing() {
-
-    }
-
 
     @Override
     public GameDTO makeMove(GameMoveDTO move) {
@@ -111,6 +107,7 @@ public class GameServiceImpl implements GameService {
         Map<Integer, Integer> gameState = fromJson(game.getState());
         validateMove(move, game, gameState);
         boolean gameOver = applyMove(move, game, gameState);
+        // TODO: last stone in own kalah: have another turn!
         log.debug("Player " + move.getPlayerId() + " made move on " + move.getPitNumber() + " in game " + move.getGameId() + ".");
         if (gameOver) {
             game.setStatus(GameStatus.GAME_OVER);
