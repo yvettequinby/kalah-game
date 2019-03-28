@@ -2,5 +2,18 @@ package com.javafreelancedeveloper.kalah.domain;
 
 public enum GameStatus {
 
-    PENDING, PLAYER_ONE_TURN, PLAYER_TWO_TURN, GAME_OVER;
+    PENDING("WAITING FOR SECOND PLAYER TO JOIN"),
+    PLAYER_ONE_TURN("PLAYER ONE'S TURN"),
+    PLAYER_TWO_TURN("PLAYER TWO'S TURN"),
+    GAME_OVER("GAME OVER");
+
+    private final String description;
+
+    GameStatus(String description) {
+        this.description = description;
+    }
+
+    public String getDescription() {
+        return description;
+    }
 }

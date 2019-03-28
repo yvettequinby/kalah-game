@@ -46,7 +46,7 @@ public class LandingPageController {
             String url = "redirect:/game/%s/player/%s";
             return String.format(url, game.getId().toString(), game.getPlayerId().toString());
         } else {
-            // TODO: add scrollTo thing
+            model.addAttribute("scrollToSelector", "#new-game-card");
             return "landing";
         }
     }

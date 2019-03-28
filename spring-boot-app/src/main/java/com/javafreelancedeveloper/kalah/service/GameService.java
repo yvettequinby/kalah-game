@@ -3,9 +3,12 @@ package com.javafreelancedeveloper.kalah.service;
 import com.javafreelancedeveloper.kalah.dto.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface GameService {
+
+    String convertGameStateToJson(Map<Integer, Integer> gameState);
 
     List<GameSummaryDTO> listActiveGames();
 

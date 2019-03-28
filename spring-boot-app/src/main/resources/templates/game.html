@@ -11,8 +11,8 @@
 
     <div class="section">
 
-        <img src="assets/img/dots.png" class="dots">
-        <img src="assets/img/path4.png" class="path">
+        <img src="/assets/img/dots.png" class="dots">
+        <img src="/assets/img/path4.png" class="path">
 
         <div class="container align-items-center">
 
@@ -25,9 +25,14 @@
             <h3 class="title mb-3">GAME &nbsp; - &nbsp; <span th:text="${game.name}">My Game XYZ</span></h3>
 
             <div class="row">
-                <div class="col-12">
+                <div class="col">
                     <p class="text-danger">
-                        READY PLAYER ONE
+                        YOU ARE <span th:text="${game.playerDesignation}">PLAYER ONE</span>
+                    </p>
+                </div>
+                <div class="col text-right">
+                    <p class="text-info">
+                        <span id="game-status-description" th:text="${game.statusDescription}">PLAYER ONE'S TURN</span>
                     </p>
                 </div>
             </div>
@@ -39,11 +44,9 @@
             </div>
 
 
-
-
             <div class="row">
                 <div class="col-sm-12 col-md-4 offset-md-4">
-                    <div class="pit playerTwo">
+                    <div class="player playerTwo">
                         PLAYER TWO
                     </div>
                 </div>
@@ -141,7 +144,7 @@
 
             <div class="row">
                 <div class="col-sm-12 col-md-4 offset-md-4">
-                    <div class="pit playerOne">
+                    <div class="player playerOne">
                         PLAYER ONE
                     </div>
                 </div>
@@ -156,11 +159,86 @@
 
 <div th:replace="fragments/js-scripts :: js-scripts"></div>
 <script>
-    $(document).ready(function () {
 
-        // DO STUFF
+    var playerDesignation = "[[${game.playerDesignation}]]";
+    var gameId = "[[${game.id}]]";
+    var playerId = "[[${game.playerId}]]";
+    let gameStatus = "[[${game.status}]]";
+
+    $(document).ready(function () {
+        let gameState = [(${gameState})];
+        connectToSocket();
+        refreshStones(gameState);
+        enableMoves();
 
     });
+
+    function canMove() {
+        if("PLAYER_ONE_TURN"===gameStatus && "PLAYER ONE"===playerDesignation) {
+            return true;
+        } else if("PLAYER_TWO_TURN"===gameStatus && "PLAYER TWO"===playerDesignation) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    function enableMoves() {
+        let start = playerDesignation==="PLAYER ONE" ? 1 : 8;
+        let max = playerDesignation==="PLAYER ONE" ? 7 : 14;
+        for (let i = start; i < max; i++) {
+            let selector = "#pit" + i;
+            $(selector).click(
+                function () {
+                    makeMove(i);
+                }
+            );
+        }
+    }
+
+    function refreshStones(gameState) {
+        for (let i = 1; i < 15; i++) {
+            let selector = "#pit" + i;
+            let key = i.toString();
+            let value = gameState[key];
+            $(selector).html(value);
+        }
+    }
+
+    function refreshGameStatus(gameStatusDescription) {
+        $("#game-status-description").html(gameStatusDescription);
+    }
+
+    function makeMove(pitNumber) {
+        if(canMove()) {
+            let putUrl = "/api/game";
+            let gameMove = {"gameId": gameId, "playerId": playerId, "pitNumber": pitNumber};
+            $.ajax(putUrl, {
+                    type: 'PUT',
+                    data: JSON.stringify(gameMove),
+                    contentType: "application/json;charset=utf-8"
+                }
+            ).fail(function (data) {
+                alert("The game has experienced an unexpected error. Press Ok to reload the game.");
+                location.href = "/game/" + gameId + "/player/" + playerId;
+            });
+        }
+    }
+
+    function connectToSocket() {
+        let topicPath = "/topic/game/" + gameId;
+        let socket = new SockJS('/kalah-websocket');
+        let stompClient = Stomp.over(socket);
+        stompClient.connect({}, function (frame) {
+            stompClient.subscribe(topicPath, function (gameMessage) {
+                let game = JSON.parse(gameMessage.body);
+                refreshStones(game.state);
+                refreshGameStatus(game.statusDescription);
+                gameStatus = game.status;
+            });
+        });
+    }
+
 </script>
 </body>
 

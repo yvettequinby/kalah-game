@@ -11,7 +11,6 @@ import com.javafreelancedeveloper.kalah.repository.GameRepository;
 import com.javafreelancedeveloper.kalah.service.GameService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -37,6 +36,11 @@ public class GameServiceImpl implements GameService {
 
 
     @Override
+    public String convertGameStateToJson(Map<Integer, Integer> gameState) {
+        return toJson(gameState);
+    }
+
+    @Override
     public List<GameSummaryDTO> listActiveGames() {
         List<GameSummaryDTO> activeGames = new ArrayList<>();
         gameRepository.findAll().forEach(game -> {
@@ -59,10 +63,11 @@ public class GameServiceImpl implements GameService {
     @Override
     public GameDTO getGame(GameRequestDTO gameRequest) {
         Game game = gameRepository.findById(gameRequest.getGameId()).orElseThrow(GameNotFoundException::new);
-        if(gameRequest.getPlayerId().equals(game.getPlayerOneId()) || gameRequest.getPlayerId().equals(game.getPlayerTwoId())) {
-            return convert(game, gameRequest.getPlayerId());
+        if (gameRequest.getPlayerId().equals(game.getPlayerOneId()) || gameRequest.getPlayerId().equals(game.getPlayerTwoId())) {
+            boolean isPlayerOne = isPlayerOne(gameRequest.getPlayerId(), game);
+            return convert(game, gameRequest.getPlayerId(), isPlayerOne);
         } else {
-            return convert(game, null);
+            return convert(game, null, false);
         }
     }
 
@@ -83,7 +88,7 @@ public class GameServiceImpl implements GameService {
                     .build();
             newGame = gameRepository.save(newGame);
             log.info("Player One created game " + newGame.getId());
-            return convert(newGame, newGame.getPlayerOneId());
+            return convert(newGame, newGame.getPlayerOneId(), true);
         }
     }
 
@@ -94,7 +99,7 @@ public class GameServiceImpl implements GameService {
             game.setStatus(GameStatus.PLAYER_ONE_TURN);
             game = gameRepository.save(game);
             log.info("Player Two joined game " + game.getId());
-            return convert(game, game.getPlayerTwoId());
+            return convert(game, game.getPlayerTwoId(), false);
         } else {
             throw new GameNotPendingException();
         }
@@ -106,28 +111,34 @@ public class GameServiceImpl implements GameService {
         Game game = gameRepository.findById(move.getGameId()).orElseThrow(GameNotFoundException::new);
         Map<Integer, Integer> gameState = fromJson(game.getState());
         validateMove(move, game, gameState);
-        boolean gameOver = applyMove(move, game, gameState);
-        // TODO: last stone in own kalah: have another turn!
+        boolean isPlayerOne = isPlayerOne(move.getPlayerId(), game);
+        Integer lastPitNumber = applyMove(move, game, gameState);
+        boolean gameOver = handleGameOver(gameState);
         log.debug("Player " + move.getPlayerId() + " made move on " + move.getPitNumber() + " in game " + move.getGameId() + ".");
         if (gameOver) {
             game.setStatus(GameStatus.GAME_OVER);
             log.info("Game " + move.getGameId() + " is GAME OVER!");
         } else {
-            game.setStatus(GameStatus.PLAYER_ONE_TURN.equals(game.getStatus()) ? GameStatus.PLAYER_TWO_TURN : GameStatus.PLAYER_ONE_TURN);
+            boolean goAgain = getKalahNumber(isPlayerOne).equals(lastPitNumber);
+            GameStatus nextStatus = isPlayerOne
+                    ? (goAgain ? GameStatus.PLAYER_ONE_TURN : GameStatus.PLAYER_TWO_TURN)
+                    : (goAgain ? GameStatus.PLAYER_TWO_TURN : GameStatus.PLAYER_ONE_TURN);
+            game.setStatus(nextStatus);
         }
         game.setState(toJson(gameState));
         game = gameRepository.save(game);
-        return convert(game, move.getPlayerId());
+        return convert(game, move.getPlayerId(), isPlayerOne);
     }
 
 
     @Override
     public GameDTO quitGame(QuitGameRequestDTO quitGameRequest) {
         Game game = gameRepository.findById(quitGameRequest.getGameId()).orElseThrow(GameNotFoundException::new);
+        boolean isPlayerOne = isPlayerOne(quitGameRequest.getPlayerId(), game);
         game.setStatus(GameStatus.GAME_OVER);
         log.info("Player " + quitGameRequest.getPlayerId() + "has quit game " + quitGameRequest.getGameId() + ". GAME OVER!");
         game = gameRepository.save(game);
-        return convert(game, quitGameRequest.getPlayerId());
+        return convert(game, quitGameRequest.getPlayerId(), isPlayerOne);
     }
 
 
@@ -150,11 +161,18 @@ public class GameServiceImpl implements GameService {
         }
     }
 
+    private boolean isPlayerOne(UUID playerId, Game game) {
+        if (playerId.equals(game.getPlayerOneId()) || playerId.equals(game.getPlayerTwoId())) {
+            return playerId.equals(game.getPlayerOneId());
+        } else {
+            throw new GameInvalidAccessException();
+        }
+    }
 
-    public boolean applyMove(GameMoveDTO move, Game game, Map<Integer, Integer> gameState) {
 
-        boolean isPlayerOne = move.getPlayerId().equals(game.getPlayerOneId());
-        boolean isPlayerTwo = move.getPlayerId().equals(game.getPlayerTwoId());
+    public Integer applyMove(GameMoveDTO move, Game game, Map<Integer, Integer> gameState) {
+
+        boolean isPlayerOne = isPlayerOne(move.getPlayerId(), game);
 
         Integer currentPitStoneCount = gameState.get(move.getPitNumber());
 
@@ -165,7 +183,7 @@ public class GameServiceImpl implements GameService {
         final AtomicInteger lastPitNumber = new AtomicInteger(move.getPitNumber());
         IntStream.range(0, currentPitStoneCount).forEach(
                 (i) -> {
-                    if (isSkipKalah(isPlayerOne, isPlayerTwo, nextPitNumber.get())) {
+                    if (isSkipKalah(isPlayerOne, nextPitNumber.get())) {
                         nextPitNumber.getAndIncrement(); // Skip other player's Kalah
                     }
                     if (nextPitNumber.get() == 15) {
@@ -178,15 +196,15 @@ public class GameServiceImpl implements GameService {
         );
 
         // check if last stone landed in player's own empty pit
-        boolean landedInOwnEmptyPit = isLandedOwnEmptyPit(isPlayerOne, isPlayerTwo, lastPitNumber.get(), gameState);
+        boolean landedInOwnEmptyPit = isLandedOwnEmptyPit(isPlayerOne, lastPitNumber.get(), gameState);
         if (landedInOwnEmptyPit) { // if the sowing ended in the player's own pit
             Integer oppositePitNumber = 14 - lastPitNumber.get(); // find the opposite pit index
-            Integer ownKalahNumber = getKalahNumber(isPlayerOne, isPlayerTwo);
+            Integer ownKalahNumber = getKalahNumber(isPlayerOne);
             moveStones(gameState, oppositePitNumber, ownKalahNumber);
             moveStones(gameState, lastPitNumber.get(), ownKalahNumber);
         }
 
-        return handleGameOver(gameState);
+        return lastPitNumber.get();
     }
 
 
@@ -218,7 +236,7 @@ public class GameServiceImpl implements GameService {
     }
 
 
-    Map<Integer, Integer> makeGame() {
+    private Map<Integer, Integer> makeGame() {
         Map<Integer, Integer> gameState = new LinkedHashMap<>();
         gameState.put(1, 4); // player one first pit
         gameState.put(2, 4);
@@ -280,13 +298,11 @@ public class GameServiceImpl implements GameService {
     }
 
 
-    private boolean isLandedOwnEmptyPit(boolean isPlayerOne, boolean isPlayerTwo, Integer pitNumber, Map<Integer, Integer> gameState) {
-        if (isPlayerOne && !isPlayerTwo && pitNumber >= 1 && pitNumber <= 6 && gameState.get(pitNumber) == 1) {
-            return true;
-        } else if (!isPlayerOne && isPlayerTwo && pitNumber >= 8 && pitNumber <= 13 && gameState.get(pitNumber) == 1) {
-            return true;
+    private boolean isLandedOwnEmptyPit(boolean isPlayerOne, Integer pitNumber, Map<Integer, Integer> gameState) {
+        if (isPlayerOne) {
+            return pitNumber >= 1 && pitNumber <= 6 && gameState.get(pitNumber) == 1;
         } else {
-            return false;
+            return pitNumber >= 8 && pitNumber <= 13 && gameState.get(pitNumber) == 1;
         }
     }
 
@@ -297,24 +313,20 @@ public class GameServiceImpl implements GameService {
     }
 
 
-    private boolean isSkipKalah(boolean isPlayerOne, boolean isPlayerTwo, Integer selectedPitNumber) {
-        if (isPlayerOne && !isPlayerTwo && selectedPitNumber.equals(PLAYER_TWO_KALAH_NUMBER)) {
-            return true;
-        } else if (!isPlayerOne && isPlayerTwo && selectedPitNumber.equals(PLAYER_ONE_KALAH_NUMBER)) {
-            return true;
+    private boolean isSkipKalah(boolean isPlayerOne, Integer selectedPitNumber) {
+        if (isPlayerOne) {
+            return selectedPitNumber.equals(PLAYER_TWO_KALAH_NUMBER);
         } else {
-            return false;
+            return selectedPitNumber.equals(PLAYER_ONE_KALAH_NUMBER);
         }
     }
 
 
-    private Integer getKalahNumber(boolean isPlayerOne, boolean isPlayerTwo) {
-        if (isPlayerOne && !isPlayerTwo) {
+    private Integer getKalahNumber(boolean isPlayerOne) {
+        if (isPlayerOne) {
             return PLAYER_ONE_KALAH_NUMBER;
-        } else if (!isPlayerOne && isPlayerTwo) {
-            return PLAYER_TWO_KALAH_NUMBER;
         } else {
-            throw new HandledException(HandledException.MSG_UNEXPECTED);
+            return PLAYER_TWO_KALAH_NUMBER;
         }
     }
 
@@ -337,19 +349,21 @@ public class GameServiceImpl implements GameService {
     private GameSummaryDTO convertToSummary(Game game) {
         return new GameSummaryDTO(game.getId(),
                 game.getName(),
-                game.getStatus().name(),
+                game.getStatus().getDescription(),
                 game.getCreatedTimestamp().getTime(),
                 game.getUpdatedTimestamp().getTime());
     }
 
 
-    private GameDTO convert(Game game, UUID playerId) {
+    private GameDTO convert(Game game, UUID playerId, boolean isPlayerOne) {
         return new GameDTO(game.getId(),
                 game.getName(),
                 game.getStatus().name(),
+                game.getStatus().getDescription(),
                 game.getCreatedTimestamp().getTime(),
                 game.getUpdatedTimestamp().getTime(),
                 playerId,
+                playerId==null ? "WATCHER" : (isPlayerOne ? "PLAYER ONE" : "PLAYER TWO"),
                 fromJson(game.getState()));
     }
 }

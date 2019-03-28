@@ -1,36 +1,50 @@
+.player {
+    padding: 1rem;
+    border-radius: 50px 20px;
+    margin:10px 0px;
+    text-align: center;
+    font-size: 120%;
+}
+.player.playerOne {
+    border: 5px solid #5e72e4;
+    color: #e14eca;
+}
+.player.playerTwo {
+    border: 5px solid #8965e0;
+    color: #00f2c3;
+}
 .pit {
-    padding: 2rem;
+    padding: 1rem;
     border-radius: 50px;
     margin:10px 0px;
     text-align: center;
     font-size: 120%;
 }
-
 .pit.playerOne {
-    border: 2px solid #5e72e4;
+    border: 5px solid #5e72e4;
     color: #e14eca;
 }
 .pit.playerTwo {
-    border: 2px solid #8965e0;
+    border: 5px solid #8965e0;
     color: #00f2c3;
 }
 .pit.selectable:hover {
     color: #fff;
-    border: 2px solid #fff;
+    border: 5px solid #fff;
     cursor: pointer;
 }
 .kalah {
-    padding: 2.5rem;
+    padding: 1.5rem;
     border-radius: 25px;
     margin:10px 0px;
     text-align: center;
     font-size: 150%;
 }
 .kalah.playerOne {
-    border: 5px solid #5e72e4;
+    border: 10px solid #5e72e4;
     color: #e14eca;
 }
 .kalah.playerTwo {
-    border: 5px solid #8965e0;
+    border: 10px solid #8965e0;
     color: #00f2c3;
 }
