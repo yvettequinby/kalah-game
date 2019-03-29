@@ -55,32 +55,32 @@
             <div class="row">
 
                 <div class="col-2">
-                    <div id="pit13" class="pit selectable playerTwo">
+                    <div id="pit13" class="pit playerTwo">
                         4
                     </div>
                 </div>
                 <div class="col-2">
-                    <div id="pit12" class="pit selectable playerTwo">
+                    <div id="pit12" class="pit playerTwo">
                         4
                     </div>
                 </div>
                 <div class="col-2">
-                    <div id="pit11" class="pit selectable playerTwo">
+                    <div id="pit11" class="pit playerTwo">
                         4
                     </div>
                 </div>
                 <div class="col-2">
-                    <div id="pit10" class="pit selectable playerTwo">
+                    <div id="pit10" class="pit playerTwo">
                         4
                     </div>
                 </div>
                 <div class="col-2">
-                    <div id="pit9" class="pit selectable playerTwo">
+                    <div id="pit9" class="pit playerTwo">
                         4
                     </div>
                 </div>
                 <div class="col-2">
-                    <div id="pit8" class="pit selectable playerTwo">
+                    <div id="pit8" class="pit playerTwo">
                         4
                     </div>
                 </div>
@@ -91,7 +91,7 @@
 
                 <div class="col-2">
                     <div id="pit14" class="kalah playerTwo">
-                        K
+                        0
                     </div>
                 </div>
 
@@ -101,7 +101,7 @@
 
                 <div class="col-2">
                     <div id="pit7" class="kalah playerOne">
-                        K
+                        0
                     </div>
                 </div>
 
@@ -110,32 +110,32 @@
             <div class="row">
 
                 <div class="col-2">
-                    <div id="pit1" class="pit selectable playerOne">
+                    <div id="pit1" class="pit playerOne">
                         4
                     </div>
                 </div>
                 <div class="col-2">
-                    <div id="pit2" class="pit selectable playerOne">
+                    <div id="pit2" class="pit playerOne">
                         4
                     </div>
                 </div>
                 <div class="col-2">
-                    <div id="pit3" class="pit selectable playerOne">
+                    <div id="pit3" class="pit playerOne">
                         4
                     </div>
                 </div>
                 <div class="col-2">
-                    <div id="pit4" class="pit selectable playerOne">
+                    <div id="pit4" class="pit playerOne">
                         4
                     </div>
                 </div>
                 <div class="col-2">
-                    <div id="pit5" class="pit selectable playerOne">
+                    <div id="pit5" class="pit playerOne">
                         4
                     </div>
                 </div>
                 <div class="col-2">
-                    <div id="pit6" class="pit selectable playerOne">
+                    <div id="pit6" class="pit playerOne">
                         4
                     </div>
                 </div>
@@ -163,29 +163,45 @@
     var playerDesignation = "[[${game.playerDesignation}]]";
     var gameId = "[[${game.id}]]";
     var playerId = "[[${game.playerId}]]";
-    let gameStatus = "[[${game.status}]]";
+    var gameStatus = "[[${game.status}]]";
+    var gameState = [(${gameState})];
 
     $(document).ready(function () {
-        let gameState = [(${gameState})];
         connectToSocket();
         refreshStones(gameState);
         enableMoves();
+        toggleSelectable();
 
     });
 
     function canMove() {
-        if("PLAYER_ONE_TURN"===gameStatus && "PLAYER ONE"===playerDesignation) {
+        if ("PLAYER_ONE_TURN" === gameStatus && "PLAYER ONE" === playerDesignation) {
             return true;
-        } else if("PLAYER_TWO_TURN"===gameStatus && "PLAYER TWO"===playerDesignation) {
+        } else if ("PLAYER_TWO_TURN" === gameStatus && "PLAYER TWO" === playerDesignation) {
             return true;
         } else {
             return false;
         }
     }
 
+    function toggleSelectable() {
+        let start = playerDesignation === "PLAYER ONE" ? 1 : 8;
+        let max = playerDesignation === "PLAYER ONE" ? 7 : 14;
+        for (let i = start; i < max; i++) {
+            let selector = "#pit" + i;
+            let pit = $(selector);
+            if (canMove() && notEmptyPit(i)) {
+                pit.removeClass("selectable");
+                pit.addClass("selectable");
+            } else {
+                pit.removeClass("selectable");
+            }
+        }
+    }
+
     function enableMoves() {
-        let start = playerDesignation==="PLAYER ONE" ? 1 : 8;
-        let max = playerDesignation==="PLAYER ONE" ? 7 : 14;
+        let start = playerDesignation === "PLAYER ONE" ? 1 : 8;
+        let max = playerDesignation === "PLAYER ONE" ? 7 : 14;
         for (let i = start; i < max; i++) {
             let selector = "#pit" + i;
             $(selector).click(
@@ -196,21 +212,57 @@
         }
     }
 
-    function refreshStones(gameState) {
+    function refreshStones() {
+
+        let pitsToUpdate = [];
+
         for (let i = 1; i < 15; i++) {
             let selector = "#pit" + i;
-            let key = i.toString();
-            let value = gameState[key];
-            $(selector).html(value);
+            let value = gameState[i].toString();
+            let pit = $(selector);
+            let currentValue = pit.html();
+            if (currentValue !== value) {
+                let updatePit = {pit: pit, value: value};
+                pitsToUpdate.push(updatePit);
+            }
         }
+
+        for (let i = 0; i < pitsToUpdate.length; i++) {
+            let pit = pitsToUpdate[i].pit;
+            let value = pitsToUpdate[i].value;
+            let delay = (i-1) * 100;
+            setTimeout(function () {
+                pit.addClass("updateEffect");
+                setTimeout(function () {
+                    pit.html(value);
+                }, 500);
+                setTimeout(function () {
+                    pit.removeClass("updateEffect");
+                }, 1000);
+            }, delay);
+        }
+
     }
 
     function refreshGameStatus(gameStatusDescription) {
-        $("#game-status-description").html(gameStatusDescription);
+        let statusLabel = $("#game-status-description");
+        statusLabel.addClass("updateEffect");
+        setTimeout(function () {
+            statusLabel.html(gameStatusDescription);
+        }, 500);
+        setTimeout(function () {
+            statusLabel.removeClass("updateEffect");
+        }, 1000);
+
+    }
+
+    function notEmptyPit(pitNumber) {
+        let pitStoneCount = gameState[pitNumber]
+        return pitStoneCount!==0;
     }
 
     function makeMove(pitNumber) {
-        if(canMove()) {
+        if (canMove() && notEmptyPit(pitNumber)) {
             let putUrl = "/api/game";
             let gameMove = {"gameId": gameId, "playerId": playerId, "pitNumber": pitNumber};
             $.ajax(putUrl, {
@@ -232,9 +284,11 @@
         stompClient.connect({}, function (frame) {
             stompClient.subscribe(topicPath, function (gameMessage) {
                 let game = JSON.parse(gameMessage.body);
-                refreshStones(game.state);
-                refreshGameStatus(game.statusDescription);
                 gameStatus = game.status;
+                gameState = game.state;
+                refreshStones();
+                refreshGameStatus(game.statusDescription);
+                toggleSelectable();
             });
         });
     }
