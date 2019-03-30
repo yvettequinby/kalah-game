@@ -91,13 +91,14 @@
                         <div class="card-body">
                             <div class="tab-content tab-subcategories">
                                 <div class="tab-pane active">
-                                    <div class="table-responsive" th:if="${#lists.isEmpty(pendingGames)}">
-                                        No pending games found.
-                                    </div>
-                                    <div class="table-responsive" th:if="${not #lists.isEmpty(pendingGames)}">
+                                    <div class="table-responsive">
                                         <table class="table tablesorter">
-                                            <tbody>
-                                            <tr th:each="pendingGame : ${pendingGames}">
+                                            <tbody id="pg-table-body">
+                                            <tr id="pg-table-empty-row" th:if="${#lists.isEmpty(pendingGames)}">
+                                                <td>No pending games found.</td>
+                                            </tr>
+                                            <tr th:each="pendingGame : ${pendingGames}"
+                                                th:id="|pg_${pendingGame.id}_row|">
                                                 <td>
                                                     <a th:href="@{|/game/${pendingGame.id}/join|}"
                                                        th:text="${pendingGame.name}">GAME 1</a>
@@ -121,13 +122,14 @@
                         <div class="card-body">
                             <div class="tab-content tab-subcategories">
                                 <div class="tab-pane active">
-                                    <div class="table-responsive" th:if="${#lists.isEmpty(activeGames)}">
-                                        No active games found.
-                                    </div>
-                                    <div class="table-responsive" th:if="${not #lists.isEmpty(activeGames)}">
+                                    <tr class="table-responsive">
                                         <table class="table tablesorter">
-                                            <tbody>
-                                            <tr th:each="activeGame : ${activeGames}">
+                                            <tbody id="ag-table-body">
+                                            <tr id="ag-table-empty-row" th:if="${#lists.isEmpty(activeGames)}">
+                                                <td>No active games found.</td>
+                                            </tr>
+                                            <tr th:each="activeGame : ${activeGames}"
+                                                th:id="|ag_${activeGame.id}_row|">
                                                 <td>
                                                     <a th:href="@{|/game/${activeGame.id}/watch|}"
                                                        th:text="${activeGame.name}">GAME 1</a>
@@ -153,15 +155,110 @@
 <script>
     $(document).ready(function () {
 
+        connectToSocket();
+
         var scrollToSelector = "[(${scrollToSelector})]";
 
         if (scrollToSelector) {
-            $("html, body").animate( {
+            $("html, body").animate({
                 scrollTop: $(scrollToSelector).offset().top
             }, 1000);
         }
 
     });
+
+    function removePendingGame(game) {
+        let selector = "#pg_" + game.id + "row";
+        let pgRow = $(selector);
+        if(pgRow) {
+            pgRow.remove();
+            toggleEmptyPendingRow();
+        }
+    }
+
+    function addPendingGame(game) {
+        let rowId = "pg_" + game.id + "row";
+        let href = "/game/" + game.id + "/join";
+        let anchorText = game.name;
+        let parentSelector = "#pg-table-body";
+        makeGameRow(rowId, href, anchorText, parentSelector);
+        toggleEmptyPendingRow();
+    }
+
+    function removeActiveGame(game) {
+        let selector = "#ag_" + game.id + "row";
+        let agRow = $(selector);
+        if(agRow) {
+            agRow.remove();
+            toggleEmptyActiveRow();
+        }
+    }
+
+    function addActiveGame(game) {
+        let rowId = "ag_" + game.id + "row";
+        let href = "/game/" + game.id + "/watch";
+        let anchorText = game.name;
+        let parentSelector = "#ag-table-body";
+        makeGameRow(rowId, href, anchorText, parentSelector);
+        toggleEmptyActiveRow();
+    }
+
+    function makeGameRow(rowId, href, anchorText, parentSelector) {
+        let domString = "<tr id='" + rowId + "'><td><a href='" + href + "'>" + anchorText + "</a></td></tr>";
+        $(parentSelector).append(domString);
+    }
+
+    function toggleEmptyPendingRow() {
+        let emptyRow = $("#pg-table-empty-row");
+        let tableBody = $("#pg-table-body");
+        let rows = tableBody.children();
+        if(rows.length===0) {
+            let domString = "<tr id='pg-table-empty-row'><td>No pending games found.</td></tr>";
+            tableBody.append(domString);
+        } else if(rows.length>1 && emptyRow) {
+            emptyRow.remove();
+        }
+    }
+
+    function toggleEmptyActiveRow() {
+        let emptyRow = $("#ag-table-empty-row");
+        let tableBody = $("#ag-table-body");
+        let rows = tableBody.children();
+        if(rows.length===0) {
+            let domString = "<tr id='ag-table-empty-row'><td>No active games found.</td></tr>";
+            tableBody.append(domString);
+        } else if(rows.length>1 && emptyRow) {
+            emptyRow.remove();
+        }
+    }
+
+    function connectToSocket() {
+        let topicPath = "/topic/landing";
+        let socket = new SockJS('/kalah-websocket');
+        let stompClient = Stomp.over(socket);
+        stompClient.connect({}, function (frame) {
+            stompClient.subscribe(topicPath, function (gameMessage) {
+                let msg = JSON.parse(gameMessage.body);
+                let game = msg.game;
+                switch(msg.updateType) {
+                    case "APG":
+                        addPendingGame(game);
+                        break;
+                    case "RPG":
+                        removePendingGame(game);
+                        break;
+                    case "AAG":
+                        addActiveGame(game);
+                        break;
+                    case "RAG":
+                        removeActiveGame(game);
+                        break;
+                    default:
+                    alert("Unknown type of game update.");
+                }
+            });
+        });
+    }
 </script>
 </body>
 

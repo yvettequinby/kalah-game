@@ -14,6 +14,8 @@ public interface GameService {
 
     List<GameSummaryDTO> listPendingGames();
 
+    GameSummaryDTO getGameSummary(UUID gameId);
+
     GameDTO getGame(GameRequestDTO gameRequest);
 
     GameDTO createGame(CreateGameRequestDTO createGameRequest);

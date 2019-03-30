@@ -9,8 +9,10 @@ import com.javafreelancedeveloper.kalah.dto.*;
 import com.javafreelancedeveloper.kalah.exception.*;
 import com.javafreelancedeveloper.kalah.repository.GameRepository;
 import com.javafreelancedeveloper.kalah.service.GameService;
+import com.javafreelancedeveloper.kalah.util.WebSocketUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -33,12 +35,40 @@ public class GameServiceImpl implements GameService {
 
     private final GameRepository gameRepository;
     private final ObjectMapper objectMapper;
+    private final WebSocketUtil webSocketUtil;
 
 
     @Override
     public String convertGameStateToJson(Map<Integer, Integer> gameState) {
         return toJson(gameState);
     }
+
+
+    @Scheduled(fixedRate = 10000)
+    public void cleanUpExpiredGames() {
+        long now = System.currentTimeMillis();
+        gameRepository.findAllByStatus(GameStatus.GAME_OVER).forEach(game -> {
+            gameRepository.delete(game);
+            webSocketUtil.sendUpdateToWebSocket(new GameUpdateDTO(GameUpdateType.RAG, convertToSummary(game)));
+        });
+        gameRepository.findAll().forEach(game -> {
+            GameUpdateType gameUpdateType = game.getStatus().equals(GameStatus.PENDING) ? GameUpdateType.RPG : GameUpdateType.RAG;
+            if (now - game.getCreatedTimestamp().getTime() > MAX_GAME_TIME_MILLISECS) {
+                log.info("Game " + game.getId() + " has timed-out. Deleting game.");
+                gameRepository.delete(game);
+                game.setStatus(GameStatus.TIME_OUT_INACTIVE);
+                webSocketUtil.sendUpdateToWebSocket(convert(game, null, false));
+                webSocketUtil.sendUpdateToWebSocket(new GameUpdateDTO(gameUpdateType, convertToSummary(game)));
+            } else if (now - game.getUpdatedTimestamp().getTime() > MAX_GAME_TIME_WAIT) {
+                log.info("Game " + game.getId() + " has timed-out. Deleting game.");
+                gameRepository.delete(game);
+                game.setStatus(GameStatus.TIME_OUT_DURATION);
+                webSocketUtil.sendUpdateToWebSocket(convert(game, null, false));
+                webSocketUtil.sendUpdateToWebSocket(new GameUpdateDTO(gameUpdateType, convertToSummary(game)));
+            }
+        });
+    }
+
 
     @Override
     public List<GameSummaryDTO> listActiveGames() {
@@ -73,8 +103,14 @@ public class GameServiceImpl implements GameService {
 
 
     @Override
+    public GameSummaryDTO getGameSummary(UUID gameId) {
+        Game game = gameRepository.findById(gameId).orElseThrow(GameNotFoundException::new);
+        return convertToSummary(game);
+    }
+
+
+    @Override
     public GameDTO createGame(CreateGameRequestDTO createGameRequest) {
-        cleanUpExpiredGames();
         long gameCount = gameRepository.count();
         if (gameCount >= MAX_GAME_COUNT) {
             throw new TooManyGamesException();
@@ -88,6 +124,10 @@ public class GameServiceImpl implements GameService {
                     .build();
             newGame = gameRepository.save(newGame);
             log.info("Player One created game " + newGame.getId());
+
+            GameSummaryDTO gameSummary = convertToSummary(newGame);
+            webSocketUtil.sendUpdateToWebSocket(new GameUpdateDTO(GameUpdateType.APG, gameSummary));
+
             return convert(newGame, newGame.getPlayerOneId(), true);
         }
     }
@@ -99,7 +139,14 @@ public class GameServiceImpl implements GameService {
             game.setStatus(GameStatus.PLAYER_ONE_TURN);
             game = gameRepository.save(game);
             log.info("Player Two joined game " + game.getId());
-            return convert(game, game.getPlayerTwoId(), false);
+
+            GameDTO gameDTO = convert(game, game.getPlayerTwoId(), false);
+            GameSummaryDTO gameSummary = convertToSummary(game);
+            webSocketUtil.sendUpdateToWebSocket(gameDTO);
+            webSocketUtil.sendUpdateToWebSocket(new GameUpdateDTO(GameUpdateType.RPG, gameSummary));
+            webSocketUtil.sendUpdateToWebSocket(new GameUpdateDTO(GameUpdateType.AAG, gameSummary));
+
+            return gameDTO;
         } else {
             throw new GameNotPendingException();
         }
@@ -127,7 +174,11 @@ public class GameServiceImpl implements GameService {
         }
         game.setState(toJson(gameState));
         game = gameRepository.save(game);
-        return convert(game, move.getPlayerId(), isPlayerOne);
+
+        GameDTO gameDTO = convert(game, move.getPlayerId(), isPlayerOne);
+        webSocketUtil.sendUpdateToWebSocket(gameDTO);
+
+        return gameDTO;
     }
 
 
@@ -328,21 +379,6 @@ public class GameServiceImpl implements GameService {
         } else {
             return PLAYER_TWO_KALAH_NUMBER;
         }
-    }
-
-
-    private void cleanUpExpiredGames() {
-        long now = System.currentTimeMillis();
-        gameRepository.findAllByStatus(GameStatus.GAME_OVER).forEach(gameRepository::delete);
-        gameRepository.findAll().forEach(game -> {
-            if (now - game.getCreatedTimestamp().getTime() > MAX_GAME_TIME_MILLISECS) {
-                log.info("Game " + game.getId() + " has timed-out. Deleting game.");
-                gameRepository.delete(game);
-            } else if (now - game.getUpdatedTimestamp().getTime() > MAX_GAME_TIME_WAIT) {
-                log.info("Game " + game.getId() + " has timed-out. Deleting game.");
-                gameRepository.delete(game);
-            }
-        });
     }
 
 

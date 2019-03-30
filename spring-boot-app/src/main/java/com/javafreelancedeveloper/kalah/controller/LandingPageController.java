@@ -24,6 +24,7 @@ public class LandingPageController {
 
     private final GameService gameService;
 
+
     @GetMapping
     @RequestMapping({"", "/", "/index"})
     public String displayLanding(Model model) {
