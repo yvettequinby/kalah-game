@@ -160,24 +160,22 @@
 <div th:replace="fragments/js-scripts :: js-scripts"></div>
 <script>
 
-    var playerDesignation = "[[${game.playerDesignation}]]";
-    var gameId = "[[${game.id}]]";
-    var playerId = "[[${game.playerId}]]";
-    var gameStatus = "[[${game.status}]]";
-    var gameState = [(${gameState})];
+    var playerDesignation = "[(${game.playerDesignation})]";
+    var playerId = "[(${game.playerId})]";
+    var game = [(${gameJson})];
 
     $(document).ready(function () {
         connectToSocket();
-        refreshStones(gameState);
+        refreshStones(game.state);
         enableMoves();
         toggleSelectable();
 
     });
 
     function canMove() {
-        if ("PLAYER_ONE_TURN" === gameStatus && "PLAYER ONE" === playerDesignation) {
+        if ("PLAYER_ONE_TURN" === game.status && "PLAYER ONE" === playerDesignation) {
             return true;
-        } else if ("PLAYER_TWO_TURN" === gameStatus && "PLAYER TWO" === playerDesignation) {
+        } else if ("PLAYER_TWO_TURN" === game.status && "PLAYER TWO" === playerDesignation) {
             return true;
         } else {
             return false;
@@ -212,19 +210,16 @@
         }
     }
 
+
     function refreshStones() {
 
         let pitsToUpdate = [];
 
-        for (let i = 1; i < 15; i++) {
-            let selector = "#pit" + i;
-            let value = gameState[i].toString();
-            let pit = $(selector);
-            let currentValue = pit.html();
-            if (currentValue !== value) {
-                let updatePit = {pit: pit, value: value};
-                pitsToUpdate.push(updatePit);
-            }
+        // a bit of malarky so that the pits flash in the right sequence: start from the pit the player moved on
+        let startFrom = game.lastMovePit ? game.lastMovePit : 1;
+        fillPitsToUpdate(pitsToUpdate, startFrom, 15);
+        if(startFrom>1) {
+            fillPitsToUpdate(pitsToUpdate, 1, startFrom);
         }
 
         for (let i = 0; i < pitsToUpdate.length; i++) {
@@ -241,14 +236,28 @@
                 }, 1000);
             }, delay);
         }
-
     }
 
-    function refreshGameStatus(gameStatusDescription) {
+
+    function fillPitsToUpdate(pitsToUpdate, startPit, endPit) {
+        for (let i = startPit; i < endPit; i++) {
+            let selector = "#pit" + i;
+            let value = game.state[i].toString();
+            let pit = $(selector);
+            let currentValue = pit.html();
+            if (currentValue !== value) {
+                let updatePit = {pit: pit, value: value};
+                pitsToUpdate.push(updatePit);
+            }
+        }
+    }
+
+
+    function refreshGameStatus() {
         let statusLabel = $("#game-status-description");
         statusLabel.addClass("updateEffect");
         setTimeout(function () {
-            statusLabel.html(gameStatusDescription);
+            statusLabel.html(game.statusDescription);
         }, 500);
         setTimeout(function () {
             statusLabel.removeClass("updateEffect");
@@ -257,14 +266,14 @@
     }
 
     function notEmptyPit(pitNumber) {
-        let pitStoneCount = gameState[pitNumber]
+        let pitStoneCount = game.state[pitNumber]
         return pitStoneCount!==0;
     }
 
     function makeMove(pitNumber) {
         if (canMove() && notEmptyPit(pitNumber)) {
             let putUrl = "/api/game";
-            let gameMove = {"gameId": gameId, "playerId": playerId, "pitNumber": pitNumber};
+            let gameMove = {"gameId": game.id, "playerId": playerId, "pitNumber": pitNumber};
             $.ajax(putUrl, {
                     type: 'PUT',
                     data: JSON.stringify(gameMove),
@@ -272,22 +281,21 @@
                 }
             ).fail(function (data) {
                 alert("The game has experienced an unexpected error. Press Ok to reload the game.");
-                location.href = "/game/" + gameId + "/player/" + playerId;
+                location.href = "/game/" + game.id + "/player/" + playerId;
             });
         }
     }
 
     function connectToSocket() {
-        let topicPath = "/topic/game/" + gameId;
+        let topicPath = "/topic/game/" + game.id;
         let socket = new SockJS('/kalah-websocket');
         let stompClient = Stomp.over(socket);
         stompClient.connect({}, function (frame) {
             stompClient.subscribe(topicPath, function (gameMessage) {
-                let game = JSON.parse(gameMessage.body);
-                gameStatus = game.status;
-                gameState = game.state;
+                let gameLatest = JSON.parse(gameMessage.body);
+                game = gameLatest;
                 refreshStones();
-                refreshGameStatus(game.statusDescription);
+                refreshGameStatus();
                 toggleSelectable();
             });
         });

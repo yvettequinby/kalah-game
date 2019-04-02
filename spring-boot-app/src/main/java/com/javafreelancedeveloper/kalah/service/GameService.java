@@ -3,18 +3,15 @@ package com.javafreelancedeveloper.kalah.service;
 import com.javafreelancedeveloper.kalah.dto.*;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 public interface GameService {
 
-    String convertGameStateToJson(Map<Integer, Integer> gameState);
+    String convertGameToJson(GameDTO game);
 
     List<GameSummaryDTO> listActiveGames();
 
     List<GameSummaryDTO> listPendingGames();
-
-    GameSummaryDTO getGameSummary(UUID gameId);
 
     GameDTO getGame(GameRequestDTO gameRequest);
 

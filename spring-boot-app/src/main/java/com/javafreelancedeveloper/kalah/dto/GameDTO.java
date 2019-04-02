@@ -19,5 +19,6 @@ public class GameDTO {
     private final UUID playerId;
     private final String playerDesignation;
     private final Map<Integer, Integer> state;
+    private final Integer lastMovePit;
 
 }

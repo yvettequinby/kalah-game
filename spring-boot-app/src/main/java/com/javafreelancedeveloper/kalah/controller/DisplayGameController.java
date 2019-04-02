@@ -25,9 +25,19 @@ public class DisplayGameController {
     @RequestMapping("/{gameId}/player/{playerId}")
     public String displayGame(@PathVariable UUID gameId, @PathVariable UUID playerId, Model model) {
         GameDTO game = gameService.getGame(new GameRequestDTO(gameId, playerId));
-        String gameStateJsonString = gameService.convertGameStateToJson(game.getState());
+        String gameJson = gameService.convertGameToJson(game);
         model.addAttribute("game", game);
-        model.addAttribute("gameState", gameStateJsonString);
+        model.addAttribute("gameJson", gameJson);
+        return "game";
+    }
+
+    @GetMapping
+    @RequestMapping("/{gameId}/watch")
+    public String watchGame(@PathVariable UUID gameId, Model model) {
+        GameDTO game = gameService.getGame(new GameRequestDTO(gameId, null));
+        String gameJson = gameService.convertGameToJson(game);
+        model.addAttribute("game", game);
+        model.addAttribute("gameJson", gameJson);
         return "game";
     }
 

@@ -39,8 +39,8 @@ public class GameServiceImpl implements GameService {
 
 
     @Override
-    public String convertGameStateToJson(Map<Integer, Integer> gameState) {
-        return toJson(gameState);
+    public String convertGameToJson(GameDTO game) {
+        return toJson(game);
     }
 
 
@@ -57,13 +57,13 @@ public class GameServiceImpl implements GameService {
                 log.info("Game " + game.getId() + " has timed-out. Deleting game.");
                 gameRepository.delete(game);
                 game.setStatus(GameStatus.TIME_OUT_INACTIVE);
-                webSocketUtil.sendUpdateToWebSocket(convert(game, null, false));
+                webSocketUtil.sendUpdateToWebSocket(convert(game, null, false, null));
                 webSocketUtil.sendUpdateToWebSocket(new GameUpdateDTO(gameUpdateType, convertToSummary(game)));
             } else if (now - game.getUpdatedTimestamp().getTime() > MAX_GAME_TIME_WAIT) {
                 log.info("Game " + game.getId() + " has timed-out. Deleting game.");
                 gameRepository.delete(game);
                 game.setStatus(GameStatus.TIME_OUT_DURATION);
-                webSocketUtil.sendUpdateToWebSocket(convert(game, null, false));
+                webSocketUtil.sendUpdateToWebSocket(convert(game, null, false, null));
                 webSocketUtil.sendUpdateToWebSocket(new GameUpdateDTO(gameUpdateType, convertToSummary(game)));
             }
         });
@@ -93,19 +93,17 @@ public class GameServiceImpl implements GameService {
     @Override
     public GameDTO getGame(GameRequestDTO gameRequest) {
         Game game = gameRepository.findById(gameRequest.getGameId()).orElseThrow(GameNotFoundException::new);
-        if (gameRequest.getPlayerId().equals(game.getPlayerOneId()) || gameRequest.getPlayerId().equals(game.getPlayerTwoId())) {
-            boolean isPlayerOne = isPlayerOne(gameRequest.getPlayerId(), game);
-            return convert(game, gameRequest.getPlayerId(), isPlayerOne);
+        if(gameRequest.getPlayerId()==null) {
+            return convert(game, null, false, null);
         } else {
-            return convert(game, null, false);
+            if (gameRequest.getPlayerId().equals(game.getPlayerOneId())) {
+                return convert(game, gameRequest.getPlayerId(), true, null);
+            } else if(gameRequest.getPlayerId().equals(game.getPlayerTwoId())) {
+                return convert(game, gameRequest.getPlayerId(), false, null);
+            } else {
+                throw new GameInvalidAccessException();
+            }
         }
-    }
-
-
-    @Override
-    public GameSummaryDTO getGameSummary(UUID gameId) {
-        Game game = gameRepository.findById(gameId).orElseThrow(GameNotFoundException::new);
-        return convertToSummary(game);
     }
 
 
@@ -128,7 +126,7 @@ public class GameServiceImpl implements GameService {
             GameSummaryDTO gameSummary = convertToSummary(newGame);
             webSocketUtil.sendUpdateToWebSocket(new GameUpdateDTO(GameUpdateType.APG, gameSummary));
 
-            return convert(newGame, newGame.getPlayerOneId(), true);
+            return convert(newGame, newGame.getPlayerOneId(), true, null);
         }
     }
 
@@ -140,7 +138,7 @@ public class GameServiceImpl implements GameService {
             game = gameRepository.save(game);
             log.info("Player Two joined game " + game.getId());
 
-            GameDTO gameDTO = convert(game, game.getPlayerTwoId(), false);
+            GameDTO gameDTO = convert(game, game.getPlayerTwoId(), false, null);
             GameSummaryDTO gameSummary = convertToSummary(game);
             webSocketUtil.sendUpdateToWebSocket(gameDTO);
             webSocketUtil.sendUpdateToWebSocket(new GameUpdateDTO(GameUpdateType.RPG, gameSummary));
@@ -175,7 +173,7 @@ public class GameServiceImpl implements GameService {
         game.setState(toJson(gameState));
         game = gameRepository.save(game);
 
-        GameDTO gameDTO = convert(game, move.getPlayerId(), isPlayerOne);
+        GameDTO gameDTO = convert(game, move.getPlayerId(), isPlayerOne, move.getPitNumber());
         webSocketUtil.sendUpdateToWebSocket(gameDTO);
 
         return gameDTO;
@@ -189,13 +187,13 @@ public class GameServiceImpl implements GameService {
         game.setStatus(GameStatus.GAME_OVER);
         log.info("Player " + quitGameRequest.getPlayerId() + "has quit game " + quitGameRequest.getGameId() + ". GAME OVER!");
         game = gameRepository.save(game);
-        return convert(game, quitGameRequest.getPlayerId(), isPlayerOne);
+        return convert(game, quitGameRequest.getPlayerId(), isPlayerOne, null);
     }
 
 
-    private String toJson(Map<Integer, Integer> gameState) {
+    private String toJson(Object o) {
         try {
-            return objectMapper.writeValueAsString(gameState);
+            return objectMapper.writeValueAsString(o);
         } catch (JsonProcessingException e) {
             throw new HandledException(HandledException.MSG_UNEXPECTED, e);
         }
@@ -391,7 +389,7 @@ public class GameServiceImpl implements GameService {
     }
 
 
-    private GameDTO convert(Game game, UUID playerId, boolean isPlayerOne) {
+    private GameDTO convert(Game game, UUID playerId, boolean isPlayerOne, Integer lastMovePit) {
         return new GameDTO(game.getId(),
                 game.getName(),
                 game.getStatus().name(),
@@ -399,7 +397,8 @@ public class GameServiceImpl implements GameService {
                 game.getCreatedTimestamp().getTime(),
                 game.getUpdatedTimestamp().getTime(),
                 playerId,
-                playerId==null ? "WATCHER" : (isPlayerOne ? "PLAYER ONE" : "PLAYER TWO"),
-                fromJson(game.getState()));
+                playerId == null ? "WATCHER" : (isPlayerOne ? "PLAYER ONE" : "PLAYER TWO"),
+                fromJson(game.getState()),
+                lastMovePit);
     }
 }
