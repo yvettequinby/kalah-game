@@ -156,6 +156,25 @@
 
 </div>
 
+<div class="modal fade modal-mini modal-primary modal-mini" id="game-over-modal" tabindex="-1" role="dialog" >
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header justify-content-center">
+                <div class="modal-profile">
+                    <i class="tim-icons icon-trophy"></i>
+                </div>
+            </div>
+            <div class="modal-body">
+                <h3 class="text-center">GAME OVER</h3>
+                <p class="text-center" id="game-over-announcement"></p>
+            </div>
+            <div class="modal-footer">
+                &nbsp;
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <div th:replace="fragments/js-scripts :: js-scripts"></div>
 <script>
@@ -170,7 +189,40 @@
         enableMoves();
         toggleSelectable();
 
+        $(window).on("beforeunload", function(e) {
+            return handleQuitConfirmation();
+        });
+
+        $(window).on("unload", function(e) {
+            return handleQuitGame();
+        });
+
     });
+
+
+    function handleQuitConfirmation() {
+        let isPlayer = "PLAYER ONE" === playerDesignation || "PLAYER TWO" === playerDesignation;
+        let gameInitialised = "PLAYER_ONE_TURN" === game.status || "PLAYER_TWO_TURN" === game.status || "PENDING" === game.status;
+        if(isPlayer && gameInitialised) {
+            return "Leaving the page will quit the game? Are you sure you want to quit?";
+        } else {
+            return void(0);
+        }
+    }
+
+    function handleQuitGame() {
+        let isPlayer = "PLAYER ONE" === playerDesignation || "PLAYER TWO" === playerDesignation;
+        let gameInitialised = "PLAYER_ONE_TURN" === game.status || "PLAYER_TWO_TURN" === game.status || "PENDING" === game.status;
+        if(isPlayer && gameInitialised) {
+            let putUrl = "/api/game/" + game.id + "/quit/player/" + playerId;
+            $.ajax(putUrl, {
+                    async: false,
+                    type: 'PUT',
+                    contentType: "application/json;charset=utf-8"
+                }
+            )
+        }
+    }
 
     function canMove() {
         if ("PLAYER_ONE_TURN" === game.status && "PLAYER ONE" === playerDesignation) {
@@ -262,7 +314,23 @@
         setTimeout(function () {
             statusLabel.removeClass("updateEffect");
         }, 1000);
+    }
 
+
+    function handleGameOver() {
+        if(game.status==="GAME_OVER") {
+            if(game.state[7] > game.state[14]) {
+                $('#game-over-announcement').html("PLAYER ONE WINS");
+            } else if(game.state[7] < game.state[14]) {
+                $('#game-over-announcement').html("PLAYER TWO WINS");
+            } else {
+                $('#game-over-announcement').html("DRAW");
+            }
+            $('#game-over-modal').modal();
+        } else if(game.status==="GAME_OVER_QUIT") {
+            $('#game-over-announcement').html("A PLAYER HAS QUIT THE GAME");
+            $('#game-over-modal').modal();
+        }
     }
 
     function notEmptyPit(pitNumber) {
@@ -297,6 +365,7 @@
                 refreshStones();
                 refreshGameStatus();
                 toggleSelectable();
+                handleGameOver();
             });
         });
     }

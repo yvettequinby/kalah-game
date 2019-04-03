@@ -93,12 +93,12 @@ public class GameServiceImpl implements GameService {
     @Override
     public GameDTO getGame(GameRequestDTO gameRequest) {
         Game game = gameRepository.findById(gameRequest.getGameId()).orElseThrow(GameNotFoundException::new);
-        if(gameRequest.getPlayerId()==null) {
+        if (gameRequest.getPlayerId() == null) {
             return convert(game, null, false, null);
         } else {
             if (gameRequest.getPlayerId().equals(game.getPlayerOneId())) {
                 return convert(game, gameRequest.getPlayerId(), true, null);
-            } else if(gameRequest.getPlayerId().equals(game.getPlayerTwoId())) {
+            } else if (gameRequest.getPlayerId().equals(game.getPlayerTwoId())) {
                 return convert(game, gameRequest.getPlayerId(), false, null);
             } else {
                 throw new GameInvalidAccessException();
@@ -184,10 +184,16 @@ public class GameServiceImpl implements GameService {
     public GameDTO quitGame(QuitGameRequestDTO quitGameRequest) {
         Game game = gameRepository.findById(quitGameRequest.getGameId()).orElseThrow(GameNotFoundException::new);
         boolean isPlayerOne = isPlayerOne(quitGameRequest.getPlayerId(), game);
+        GameUpdateType gameUpdateType = game.getStatus().equals(GameStatus.PENDING) ? GameUpdateType.RPG : GameUpdateType.RAG;
+        log.info("Player " + quitGameRequest.getPlayerId() + " has quit game " + quitGameRequest.getGameId() + ". GAME OVER!");
+        game.setStatus(GameStatus.GAME_OVER_QUIT);
+        GameDTO gameDTO = convert(game, quitGameRequest.getPlayerId(), isPlayerOne, null);
+        GameSummaryDTO gameSummaryDTO = convertToSummary(game);
         game.setStatus(GameStatus.GAME_OVER);
-        log.info("Player " + quitGameRequest.getPlayerId() + "has quit game " + quitGameRequest.getGameId() + ". GAME OVER!");
-        game = gameRepository.save(game);
-        return convert(game, quitGameRequest.getPlayerId(), isPlayerOne, null);
+        gameRepository.save(game);
+        webSocketUtil.sendUpdateToWebSocket(gameDTO);
+        webSocketUtil.sendUpdateToWebSocket(new GameUpdateDTO(gameUpdateType, gameSummaryDTO));
+        return gameDTO;
     }
 
 
